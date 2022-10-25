@@ -8,6 +8,8 @@ import com.wpx.renggie.entity.User;
 import com.wpx.renggie.service.UserService;
 import com.wpx.renggie.utils.ValidateCodeUtils;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>
@@ -32,6 +35,9 @@ public class UserController {
 
 @Resource
 private UserService userService;
+
+@Resource
+private RedisTemplate redisTemplate;
 
 
 
@@ -54,7 +60,11 @@ private UserService userService;
             //SMSUtils.sendMessage("瑞吉外卖","",phone,code);
 
             //需要将生成的验证码保存到Session
-            session.setAttribute(phone,code);
+            //session.setAttribute(phone,code);
+
+            //将验证码缓存到reids中，设置时间为5分钟
+            redisTemplate.opsForValue().set(phone,code,5, TimeUnit.MINUTES);
+
             return Result.success("手机验证码短信发送成功");
         }
         return Result.error("手机短信发送失败");
@@ -70,7 +80,10 @@ private UserService userService;
         //获取验证码
         final String code = map.get("code").toString();
 
-        final Object codeInsession = session.getAttribute(phone);
+        //final Object codeInsession = session.getAttribute(phone);
+
+        //从redis中获取保存的验证码
+        final String codeInsession = (String) redisTemplate.opsForValue().get(phone);
 
         if (codeInsession!=null && code.equals(codeInsession)){
             //如果能够比对成功，说明登录成功
@@ -86,7 +99,14 @@ private UserService userService;
                 user.setStatus(1);
                 userService.save(user);
             }
-            session.setAttribute("user",user.getId());
+           session.setAttribute("user",user.getId());
+
+//            //此时已经登陆成功，向Redis中存入userId的信息留给过滤器进行验证放行
+//            redisTemplate.opsForValue().set("user", user.getId());
+
+
+            //如果用户登录成功则删除Redis中缓存的验证码
+            redisTemplate.delete(phone);
 
             return Result.success("登陆成功，欢迎~");
         }
