@@ -52,7 +52,7 @@ public class SetmealController {
      * @return
      */
     @PostMapping()
-    //@CacheEvict(value = "setmealCache",allEntries = true)
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<String> saveSetmeal(@RequestBody SetmealDto setmealDto) {
         log.info(setmealDto.toString());
         //因为是两张表关联查询，所以MP直接查是不可以的，自己写一个，把两个信息关联起来存储
@@ -116,6 +116,7 @@ public class SetmealController {
 
     //删除套餐
     @DeleteMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<String> deleteSetmeal(@RequestParam List<Long> ids){
         log.info("ids:{}", ids);
         setmealService.removeWithDish(ids);
@@ -149,6 +150,7 @@ public class SetmealController {
 
     //修改套餐
     @PutMapping
+    @CacheEvict(value = "setmealCache",allEntries = true)
     public Result<String> update(@RequestBody SetmealDto setmealDto){
         setmealService.updateWithDish(setmealDto);
         return Result.success("修改成功");
@@ -157,6 +159,7 @@ public class SetmealController {
 
 
     @GetMapping("/list")
+    @Cacheable(value = "setmealCache",key = "#setmeal.categoryId +'_'+#setmeal.status")
     public Result<List<Setmeal>> list(Setmeal setmeal){
         LambdaQueryWrapper<Setmeal> queryWrapper=new LambdaQueryWrapper<>();
         queryWrapper.eq(setmeal.getCategoryId()!=null,Setmeal::getCategoryId,setmeal.getCategoryId());
